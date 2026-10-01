@@ -247,13 +247,30 @@ def detect_url_language(url):
 
     return 'en'
 
+def fetch_robots_sitemaps(base_url):
+    robots_url = base_url + "/robots.txt"
+    sitemap_urls = []
+    try:
+        response = requests.get(robots_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+        if response.status_code == 200:
+            for line in response.text.splitlines():
+                match = re.match(r'\s*sitemap\s*:\s*(\S+)', line, re.IGNORECASE)
+                if match:
+                    sitemap_urls.append(match.group(1))
+    except requests.exceptions.RequestException as e:
+        st.warning(f"Error accessing {robots_url}: {e}")
+    return sitemap_urls
+
 def fetch_sitemap_urls(website_url):
-    sitemap_paths = ["/sitemap.xml","/sitemap-index.xml", "/sitemap_index.xml", "/sitemap-1.xml", "/sitemaps/sitemap.xml", "/sitemaps/sitemap_index.xml,"]
-    base_url = website_url.rstrip('/')
+    sitemap_paths = ["/sitemap.xml","/sitemap-index.xml", "/sitemap_index.xml", "/sitemap-1.xml", "/sitemaps/sitemap.xml", "/sitemaps/sitemap_index.xml"]
+    parsed = urlparse(website_url.strip())
+    base_url = f"{parsed.scheme}://{parsed.netloc}"
     all_urls = []
 
-    for path in sitemap_paths:
-        sitemap_url = base_url + path
+    candidate_sitemaps = [base_url + path for path in sitemap_paths] + fetch_robots_sitemaps(base_url)
+    candidate_sitemaps = list(dict.fromkeys(candidate_sitemaps))
+
+    for sitemap_url in candidate_sitemaps:
         try:
             response = requests.get(sitemap_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
             if response.status_code == 200:
